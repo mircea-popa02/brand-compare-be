@@ -17,13 +17,9 @@ app.use(express.json());
 
 const api_url = "https://app.socialinsider.io/api";
 
-const ProfileTypes = {
-  INSTAGRAM: "instagram_profile",
-  FACEBOOK: "facebook_page",
-  TWITTER: "twitter_profile",
-};
 
 async function fetchProfileData(profile_type, id, start, end) {
+  console.log("fetching data for", start, end);
   const response = await fetch(api_url, {
     method: "POST",
     headers: {
@@ -47,68 +43,35 @@ async function fetchProfileData(profile_type, id, start, end) {
   });
 
   let data = await response.json();
-  // console.log(data);
-  console.log("data before")
-  console.log(data.resp[id]["07-04-2024"]);
-  console.log(data.resp[id]["07-04-2024"]);
+
+  console.log(id)
+
   data = Object.keys(data.resp[id]).map((key) => {
     return data.resp[id][key];
   });
+  console.log(data)
 
-  console.log("Data after")
-  console.log(data);
-  return data;
+  let engagement = 0;
+  let max_followers = 0;
+  data.map((day) => {
+    if (day.engagement) {
+      engagement += day.engagement;
+    }
+    if (day.followers) {
+      max_followers = Math.max(max_followers, day.followers);
+    }
+  });
+  console.log("done fetching data for", id);
+  return { id, engagement, followers: max_followers };
 }
 
-app.post("/brand-data", (req, res) => {
-  const { start, end, profiles } = req.body;
-
-  console.log(req.body);
-
+app.get("/brands", (req, res) => {
+  const { start, end } = req.query;
   if (end < start) {
     res.status(400).send("End date must be after start date");
     return;
   }
 
-  if (!profiles || profiles.length === 0) {
-    res.status(400).send("Profiles must be provided");
-    return;
-  }
-
-  const isValidProfileType = profiles.every((profile) => {
-    return Object.values(ProfileTypes).includes(profile.profile_type);
-  });
-
-  if (!isValidProfileType) {
-    res.status(400).send("Invalid profile type");
-    return;
-  }
-
-  const promises = profiles.map((profile) => {
-    const { profile_type, id } = profile;
-
-    return fetchProfileData(profile_type, id, start, end);
-  });
-
-  Promise.all(promises).then((data) => {
-    const followers = data.reduce(
-      (total, profile) => total + Math.max(...profile.map((p) => p.followers)),
-      0
-    );
-
-    const mergedData = data.reduce((acc, curr) => {
-      return acc.concat(curr);
-    }, []);
-
-    engagement = mergedData.reduce((acc, curr) => {
-      return acc + curr.engagement;
-    }, 0);
-
-    res.send({ engagement, followers });
-  });
-});
-
-app.get("/brands", (req, res) => {
   async function fetchBrands() {
     const response = await fetch(api_url, {
       method: "POST",
@@ -127,8 +90,29 @@ app.get("/brands", (req, res) => {
     });
 
     let data = await response.json();
+    data = data.result;
 
-    return data.result;
+    const brandData = data.map((brand) => {
+      const profiles = brand.profiles.map((profile) => {
+        return fetchProfileData(profile.profile_type, profile.id, start, end);
+      });
+
+      return Promise.all(profiles);
+    });
+
+    const brandStats = await Promise.all(brandData);
+    // append brandStats to data
+    data = data.map((brand, index) => {
+      brand.engagement = 0;
+      brand.followers = 0;
+      brandStats[index].map((profile) => {
+        brand.engagement += profile.engagement;
+        brand.followers = Math.max(brand.followers, profile.followers);
+      });
+      return brand;
+    });
+
+    return data;
   }
 
   fetchBrands().then((data) => {
