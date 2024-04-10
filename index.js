@@ -44,7 +44,6 @@ async function fetchProfileData(profile_type, id, start, end) {
   let data = await response.json();
 
   console.log(id)
-
   data = Object.keys(data.resp[id]).map((key) => {
     return data.resp[id][key];
   });
@@ -100,13 +99,12 @@ app.get("/brands", (req, res) => {
     });
 
     const brandStats = await Promise.all(brandData);
-    // append brandStats to data
     data = data.map((brand, index) => {
       brand.engagement = 0;
       brand.followers = 0;
       brandStats[index].map((profile) => {
         brand.engagement += profile.engagement;
-        brand.followers = Math.max(brand.followers, profile.followers);
+        brand.followers += profile.followers;
       });
       return brand;
     });
