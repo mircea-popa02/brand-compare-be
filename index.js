@@ -18,7 +18,6 @@ const api_url = "https://app.socialinsider.io/api";
 
 
 async function fetchProfileData(profile_type, id, start, end) {
-  console.log("fetching data for", start, end);
   const response = await fetch(api_url, {
     method: "POST",
     headers: {
@@ -43,11 +42,9 @@ async function fetchProfileData(profile_type, id, start, end) {
 
   let data = await response.json();
 
-  console.log(id)
   data = Object.keys(data.resp[id]).map((key) => {
     return data.resp[id][key];
   });
-  console.log(data)
 
   let engagement = 0;
   let max_followers = 0;
@@ -59,7 +56,6 @@ async function fetchProfileData(profile_type, id, start, end) {
       max_followers = Math.max(max_followers, day.followers);
     }
   });
-  console.log("done fetching data for", id);
   return { id, engagement, followers: max_followers };
 }
 
