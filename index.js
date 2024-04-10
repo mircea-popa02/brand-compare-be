@@ -47,15 +47,23 @@ async function fetchProfileData(profile_type, id, start, end) {
   });
 
   let data = await response.json();
+  // console.log(data);
+  console.log("data before")
+  console.log(data.resp[id]["07-04-2024"]);
+  console.log(data.resp[id]["07-04-2024"]);
   data = Object.keys(data.resp[id]).map((key) => {
     return data.resp[id][key];
   });
+
+  console.log("Data after")
+  console.log(data);
   return data;
 }
 
-
-app.get("/engagement", (req, res) => {
+app.post("/brand-data", (req, res) => {
   const { start, end, profiles } = req.body;
+
+  console.log(req.body);
 
   if (end < start) {
     res.status(400).send("End date must be after start date");
@@ -82,20 +90,23 @@ app.get("/engagement", (req, res) => {
     return fetchProfileData(profile_type, id, start, end);
   });
 
-
   Promise.all(promises).then((data) => {
+    const followers = data.reduce(
+      (total, profile) => total + Math.max(...profile.map((p) => p.followers)),
+      0
+    );
+
     const mergedData = data.reduce((acc, curr) => {
       return acc.concat(curr);
     }, []);
 
-    total_engagement = mergedData.reduce((acc, curr) => {
+    engagement = mergedData.reduce((acc, curr) => {
       return acc + curr.engagement;
     }, 0);
 
-    res.send({ total_engagement });
+    res.send({ engagement, followers });
   });
 });
-
 
 app.get("/brands", (req, res) => {
   async function fetchBrands() {
@@ -115,8 +126,9 @@ app.get("/brands", (req, res) => {
       }),
     });
 
-    const data = await response.json();
-    return data;
+    let data = await response.json();
+
+    return data.result;
   }
 
   fetchBrands().then((data) => {
